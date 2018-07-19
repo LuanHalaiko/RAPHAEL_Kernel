@@ -5540,7 +5540,10 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	dsi_panel_esd_irq_ctrl(panel, true);
 
 	mutex_unlock(&panel->panel_lock);
-	pr_debug("[SDE] %s: DSI_CMD_SET_ON\n", __func__);
+
+	if (panel->hbm_mode)
+		dsi_panel_apply_hbm_mode(panel);
+
 	return rc;
 }
 
@@ -5700,53 +5703,25 @@ error:
 	return rc;
 }
 
-ssize_t dsi_panel_disp_count_get(struct dsi_display *display, char *buf)
+int dsi_panel_apply_hbm_mode(struct dsi_panel *panel)
 {
-	int ret = -1;
-	struct timespec64 now_boot;
-	u64 record_end = 0;
-	/* struct timespec rtctime; */
-	struct dsi_panel *panel = NULL;
+	static const enum dsi_cmd_set_type type_map[] = {
+		DSI_CMD_SET_DISP_HBM_FOD_OFF,
+		DSI_CMD_SET_DISP_HBM_FOD_ON
+	};
 
-	if (!display || !display->panel || !display->drm_dev) {
-		pr_err("invalid display/panel/drm_dev\n");
-		return -EINVAL;
-	}
+	enum dsi_cmd_set_type type;
+	int rc;
 
-	if (buf == NULL) {
-		pr_err("dsi_panel_disp_count_get buffer is NULL!\n");
-		return -EINVAL;
-	}
+	if (panel->hbm_mode >= 0 &&
+		panel->hbm_mode < ARRAY_SIZE(type_map))
+		type = type_map[panel->hbm_mode];
+	else
+		type = DSI_CMD_SET_DISP_HBM_FOD_OFF;
 
-	panel = display->panel;
-	get_monotonic_boottime64(&now_boot);
-	/* getnstimeofday(&rtctime); */
+	mutex_lock(&panel->panel_lock);
+	rc = dsi_panel_tx_cmd_set(panel, type);
+	mutex_unlock(&panel->panel_lock);
 
-	ret = scnprintf(buf, PAGE_SIZE,
-		"panel_active=%llu\n"
-		"panel_kickoff_count=%llu\n"
-		"kernel_boottime=%llu\n"
-		"kernel_rtctime=%llu\n"
-		"kernel_days=%llu\n"
-		"bl_duration=%llu\n"
-		"bl_level_integral=%llu\n"
-		"bl_highlevel_duration=%llu\n"
-		"bl_lowlevel_duration=%llu\n"
-		"hbm_duration=%llu\n"
-		"hbm_times=%llu\n"
-		"record_end=%llu\n",
-		panel->panel_active,
-		panel->kickoff_count,
-		panel->boottime + now_boot.tv_sec,
-		panel->bootRTCtime,
-		panel->bootdays,
-		panel->bl_duration,
-		panel->bl_level_integral,
-		panel->bl_highlevel_duration,
-		panel->bl_lowlevel_duration,
-		panel->hbm_duration,
-		panel->hbm_times,
-		record_end);
-
-	return ret;
+	return rc;
 }
