@@ -4518,6 +4518,7 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 		goto error;
 	}
 
+#if 0
 	/* If LP11_INIT is set, panel will be powered up during prepare() */
 	if (panel->lp11_init)
 		goto error;
