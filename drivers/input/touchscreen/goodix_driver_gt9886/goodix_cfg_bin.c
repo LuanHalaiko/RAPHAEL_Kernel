@@ -1,5 +1,5 @@
 #include "goodix_cfg_bin.h"
-#include <linux/msm_drm_notify.h>
+#include <drm/drm_notifier.h>
 
 extern int goodix_i2c_write(struct goodix_ts_device *dev, unsigned int reg, unsigned char *data, unsigned int len);
 extern int goodix_i2c_read(struct goodix_ts_device *dev, unsigned int reg, unsigned char *data, unsigned int len);
@@ -10,7 +10,7 @@ int goodix_start_cfg_bin(struct goodix_ts_core *ts_core)
 {
 	struct task_struct *cfg_bin_thrd;
 	/* create and run update thread */
-	ts_err("enter::%s\n",__func__);
+	ts_err("enter::%s\n", __func__);
 	cfg_bin_thrd = kthread_run(goodix_cfg_bin_proc, ts_core, "goodix-parse_cfg_bin");
 	if (IS_ERR_OR_NULL(cfg_bin_thrd)) {
 		ts_err("Failed to create update thread:%ld", PTR_ERR(cfg_bin_thrd));
@@ -165,7 +165,11 @@ int goodix_cfg_bin_proc(void *data)
 	struct device *dev = ts_dev->dev;
 	int r;
 
+#ifdef CONFIG_GOODIX_HWINFO
+		u8 *tp_maker;
+#endif
 	struct goodix_cfg_bin *cfg_bin = kzalloc(sizeof(struct goodix_cfg_bin), GFP_KERNEL);
+
 	if (!cfg_bin) {
 		ts_err("Failed to alloc memory for cfg_bin");
 		r = -ENOMEM;
@@ -242,15 +246,14 @@ int goodix_cfg_bin_proc(void *data)
 
 	/* inform the external module manager that
 	 * touch core layer is ready now */
-	core_data->fod_status = 1;
 	goodix_modules.core_data = core_data;
 	goodix_modules.core_exit = false;
 	/*complete_all(&goodix_modules.core_comp);*/
 
 #ifdef CONFIG_DRM
-	core_data->msm_drm_notifier.notifier_call = goodix_ts_msm_drm_notifier_callback;
-	if (msm_drm_register_client(&core_data->msm_drm_notifier))
-		ts_err("Failed to register drm notifier client:%d", r);
+	core_data->fb_notifier.notifier_call = goodix_ts_fb_notifier_callback;
+	if (drm_register_client(&core_data->fb_notifier))
+		ts_err("Failed to register fb notifier client:%d", r);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	core_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	core_data->early_suspend.resume = goodix_ts_lateresume;
@@ -265,6 +268,16 @@ int goodix_cfg_bin_proc(void *data)
 	/* generic notifier callback */
 	core_data->ts_notifier.notifier_call = goodix_generic_noti_callback;
 	goodix_ts_register_notifier(&core_data->ts_notifier);
+
+#ifdef CONFIG_GOODIX_HWINFO
+		tp_maker = kzalloc(20, GFP_KERNEL);
+		if (tp_maker == NULL)
+			ts_err("fail to alloc vendor name memory\n");
+		else {
+			kfree(tp_maker);
+			tp_maker = NULL;
+		}
+#endif
 
 exit:
 	complete_all(&goodix_modules.core_comp);
