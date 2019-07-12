@@ -13,5 +13,3 @@ if INPUT_FINGERPRINT
 
 source "drivers/input/fingerprint/goodix_ta/Kconfig"
 endif
-
-
