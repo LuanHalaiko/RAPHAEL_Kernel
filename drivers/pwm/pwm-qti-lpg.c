@@ -1593,7 +1593,7 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	}
 
 	chip->lut->pattern_switch = of_property_read_bool(chip->dev->of_node,
-						"qcom,lut-pattern-switch");
+				"qcom,lut-pattern-switch");
 	pr_info("lut pattern switch %s\n",
 		chip->lut->pattern_switch ? "enable" : "disable");
 
@@ -1601,14 +1601,16 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		rc = of_property_count_elems_of_size(chip->dev->of_node,
 				"qcom,lut-patterns-camera", sizeof(u32));
 		if (rc < 0) {
-			dev_err(chip->dev, "Read qcom,lut-patterns-camera failed, rc=%d\n",
+			dev_err(chip->dev,
+				"Read qcom,lut-patterns-camera failed, rc=%d\n",
 								rc);
 			return rc;
 		}
 
 		chip->lut->pattern_camera_length = rc;
 		if (chip->lut->pattern_camera_length > LPG_LUT_COUNT_MAX) {
-			dev_err(chip->dev, "qcom,lut-patterns-camera length %d exceed max %d\n",
+			dev_err(chip->dev,
+				"qcom,lut-patterns-camera length %d exceed max %d\n",
 					length, LPG_LUT_COUNT_MAX);
 			return -EINVAL;
 		}
@@ -1619,7 +1621,7 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 			return -ENOMEM;
 
 		rc = of_property_read_u32_array(chip->dev->of_node, "qcom,lut-patterns-camera",
-						chip->lut->pattern_camera, chip->lut->pattern_camera_length);
+				chip->lut->pattern_camera, chip->lut->pattern_camera_length);
 		if (rc < 0) {
 			dev_err(chip->dev, "Get qcom,lut-patterns-camera failed, rc=%d\n",
 					rc);
