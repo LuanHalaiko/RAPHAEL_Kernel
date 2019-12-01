@@ -359,6 +359,10 @@ static void *usbpd_ipc_log;
 #define MAX_FIXED_PDO_MA		2000
 #define MAX_NON_COMPLIANT_PPS_UA		2000000
 
+#define PD_VBUS_MAX_VOLTAGE_LIMIT		9000000
+#define MAX_FIXED_PDO_MA		2000
+#define MAX_NON_COMPLIANT_PPS_UA		2000000
+
 static bool check_vsafe0v = true;
 module_param(check_vsafe0v, bool, 0600);
 
@@ -4949,6 +4953,34 @@ struct usbpd *usbpd_create(struct device *parent)
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_SS);
+
+	pd->vbus = devm_regulator_get(parent, "vbus");
+	if (IS_ERR(pd->vbus)) {
+		ret = PTR_ERR(pd->vbus);
+		goto put_psy;
+	}
+
+	pd->vconn = devm_regulator_get(parent, "vconn");
+	if (IS_ERR(pd->vconn)) {
+		ret = PTR_ERR(pd->vconn);
+		goto put_psy;
+	}
+
+	ret = of_property_read_u32(parent->of_node, "mi,limit_pd_vbus",
+			&pd->limit_pd_vbus);
+	if (ret) {
+		usbpd_err(&pd->dev, "failed to read pd vbus limit\n");
+		pd->limit_pd_vbus = false;
+	}
+
+	if (pd->limit_pd_vbus) {
+		ret = of_property_read_u32(parent->of_node, "mi,pd_vbus_max_limit",
+				&pd->pd_vbus_max_limit);
+		if (ret) {
+			usbpd_err(&pd->dev, "failed to read pd vbus max limit\n");
+			pd->pd_vbus_max_limit = PD_VBUS_MAX_VOLTAGE_LIMIT;
+		}
+	}
 
 	pd->num_sink_caps = device_property_read_u32_array(parent,
 			"qcom,default-sink-caps", NULL, 0);
