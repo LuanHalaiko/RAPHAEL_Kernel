@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -149,7 +149,7 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			2400000
+#define DCP_CURRENT_UA			1600000
 #define HVDCP_CURRENT_UA		2800000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -159,6 +159,24 @@ enum print_reason {
 #define DCIN_ICL_STEP_UA		100000
 #define PD_UNVERIFED_CURRENT		3000000
 #define PD_VERIFED_CURRENT			6000000
+
+/*DCIN ICL*/
+#define PSNS_CURRENT_SAMPLE_RATE 1053
+#define PSNS_CURRENT_SAMPLE_RESIS 392
+#define PSNS_COMP_UV_FOR_HIGH_THERMAL 40000
+
+/* cutoff voltage threshold */
+#define CUTOFF_VOL_THR		3400000
+
+#define RSBU_K_300K_UV	3000000
+
+#define RECHARGE_SOC_THR		99
+
+enum hvdcp3_type {
+	HVDCP3_NONE = 0,
+	HVDCP3_CLASSA_18W,
+	HVDCP3_CLASSB_27W,
+};
 
 #define ROLE_REVERSAL_DELAY_MS		2000
 
@@ -463,8 +481,13 @@ struct smb_charger {
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
 	struct power_supply		*wls_psy;
+	struct power_supply		*idtp_psy;
+	struct power_supply		*wip_psy;
+	struct power_supply		*wireless_psy;
+	struct power_supply		*wls_chip_psy;
 	struct power_supply		*cp_psy;
 	enum power_supply_type		real_charger_type;
+	enum power_supply_type          wireless_charger_type;
 
 	/* dual role class */
 	struct dual_role_phy_instance	*dual_role;
@@ -507,6 +530,7 @@ struct smb_charger {
 	struct work_struct	jeita_update_work;
 	struct work_struct	moisture_protection_work;
 	struct work_struct	chg_termination_work;
+	struct work_struct	dcin_aicl_work;
 	struct work_struct	lpd_disable_chg_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
@@ -685,7 +709,9 @@ struct smb_charger {
 	u32			irq_status;
 
 	/* wireless */
-	int			wireless_vout;
+	int			dcin_uv_count;
+	ktime_t			dcin_uv_last_time;
+	int			last_wls_vout;
 	int			flag_dc_present;
 	int			power_good_en;
 	int			fake_dc_on;
@@ -825,6 +851,8 @@ int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_get_prop_wireless_version(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_set_prop_dc_reset(struct smb_charger *chg);
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -913,6 +941,8 @@ int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode mode);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
+int smblib_set_prop_wireless_wakelock(struct smb_charger *chg,
+				const union power_supply_propval *val);
 
 int smblib_set_prop_type_recheck(struct smb_charger *chg,
 				 const union power_supply_propval *val);

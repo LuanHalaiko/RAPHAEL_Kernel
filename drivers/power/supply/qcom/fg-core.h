@@ -462,6 +462,8 @@ struct fg_dev {
 	int			delta_soc;
 	int			last_msoc;
 	int			last_recharge_volt_mv;
+	int			delta_temp_irq_count;
+	enum esr_filter_status	esr_flt_sts;
 	int			vbatt_full_volt_uv;
 	int			vbat_critical_low_count;
 	bool			profile_available;
@@ -472,6 +474,8 @@ struct fg_dev {
 	bool			recharge_soc_adjusted;
 	bool			soc_reporting_ready;
 	bool			use_ima_single_mode;
+	bool			usb_present;
+	bool			twm_state;
 	bool			report_full;
 	bool			use_dma;
 	bool			qnovo_enable;
@@ -483,6 +487,9 @@ struct fg_dev {
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	sram_dump_work;
+	struct work_struct	esr_filter_work;
+	struct alarm		esr_filter_alarm;
+	ktime_t			last_delta_temp_time;
 	struct delayed_work	empty_restart_fg_work;
 	struct delayed_work	soc_work;
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1277,7 +1277,10 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	}
 
 	if (chip->cp_ilim_votable) {
-		vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
+		if (pval.intval != POWER_SUPPLY_CP_WIRELESS)
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
+		else
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
 	}
 
 	/* Configure ILIM based on AICL result only if input mode is USBMID */
