@@ -6276,6 +6276,7 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 		}
 
 		cancel_delayed_work_sync(&chg->charger_type_recheck);
+		chg->hvdcp_recheck_status = false;
 		chg->recheck_charger = false;
 		chg->precheck_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 		if (chg->cc_un_compliant_detected) {
@@ -6415,6 +6416,7 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 			smblib_hvdcp_detect_enable(chg, false);
 			chg->cc_un_compliant_detected = false;
 		}
+		chg->hvdcp_recheck_status = false;
 		chg->recheck_charger = false;
 		chg->precheck_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 		vote(chg->awake_votable, CHG_AWAKE_VOTER, false, 0);
@@ -6571,144 +6573,28 @@ int smblib_get_quick_charge_type(struct smb_charger *chg)
 	if (rc < 0)
 		return -EINVAL;
 
-	if (pval.intval == POWER_SUPPLY_STATUS_DISCHARGING)
-		return 0;
-
-	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_PD) && chg->pd_verifed) {
-		return QUICK_CHARGE_FLASH;
-	}
-
-	if (chg->is_qc_class_b)
-		return QUICK_CHARGE_FLASH;
-
-	while (adapter_cap[i].adap_type != 0) {
-		if (chg->real_charger_type == adapter_cap[i].adap_type) {
-			return adapter_cap[i].adap_cap;
-		}
-		i++;
-	}
-
-	return 0;
-}
-
-static void smblib_raise_qc3_vbus_work(struct work_struct *work)
-{
-	union power_supply_propval val = {0, };
-	int i, usb_present = 0, vbus_now = 0;
-	int vol_qc_ab_thr = 0;
-	int rc;
-	struct smb_charger *chg = container_of(work, struct smb_charger,
-						raise_qc3_vbus_work.work);
-
-	rc = smblib_get_prop_usb_present(chg, &val);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb present rc = %d\n", rc);
-		return;
-	}
-
-	usb_present = val.intval;
-	if (usb_present) {
-		chg->raise_vbus_to_detect = true;
-		for (i = 0; i < MAX_PULSE; i++) {
-			rc = smblib_dp_pulse(chg);
-			msleep(40);
-		}
-		msleep(200);
-		rc = smblib_get_prop_usb_present(chg, &val);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't get usb present rc = %d\n", rc);
-			return;
-		}
-
-		usb_present = val.intval;
-		pr_info("usb_present is %d\n", usb_present);
-		if (!usb_present) {
-			chg->raise_vbus_to_detect = false;
-			rc = smblib_force_vbus_voltage(chg, FORCE_5V_BIT);
-			if (rc < 0)
-				pr_err("Failed to force 5V\n");
-			return;
-		}
-
-		rc = smblib_get_usb_in_voltage_now(chg, &val);
-		if (rc < 0)
-			pr_err("Couldn't get usb voltage rc=%d\n", rc);
-		vbus_now = val.intval;
-		pr_info("vbus_now is %d\n", vbus_now);
-
-		if (chg->snk_debug_acc_detected && usb_present)
-			vol_qc_ab_thr = VOL_THR_FOR_QC_CLASS_AB
-							+ COMP_FOR_LOW_RESISTANCE_CABLE;
-		else
-			vol_qc_ab_thr = VOL_THR_FOR_QC_CLASS_AB;
-		if (vbus_now <= vol_qc_ab_thr) {
-			chg->is_qc_class_a = true;
-			vote(chg->fcc_votable,
-					CLASSA_QC_FCC_VOTER, true, QC_CLASS_A_CURRENT_UA);
-		} else {
-			chg->is_qc_class_b = true;
-			if (chg->usb_psy)
-				power_supply_changed(chg->usb_psy);
-		}
-		rc = smblib_force_vbus_voltage(chg, FORCE_5V_BIT);
-		if (rc < 0)
-			pr_err("Failed to force 5V\n");
-		if (chg->is_qc_class_a)
-			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-					HVDCP_CLASS_A_MAX_UA);
-		else
-			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-				HVDCP_CURRENT_UA);
-		/* select charge pump as second charger */
-		rc = smblib_select_sec_charger(chg, POWER_SUPPLY_CHARGER_SEC_CP,
-						POWER_SUPPLY_CP_HVDCP3, false);
-		if (rc < 0)
-				dev_err(chg->dev,
-					"Couldn't enable secondary chargers  rc=%d\n", rc);
-#ifdef CONFIG_THERMAL
-		if (chg->cp_reason == POWER_SUPPLY_CP_HVDCP3)
-			smblib_therm_charging(chg);
-#endif
-		chg->raise_vbus_to_detect = false;
-	}
-}
-
-struct quick_charge adapter_cap[10] = {
-	{ POWER_SUPPLY_TYPE_USB,        QUICK_CHARGE_NORMAL },
-	{ POWER_SUPPLY_TYPE_USB_DCP,    QUICK_CHARGE_NORMAL },
-	{ POWER_SUPPLY_TYPE_USB_CDP,    QUICK_CHARGE_NORMAL },
-	{ POWER_SUPPLY_TYPE_USB_ACA,    QUICK_CHARGE_NORMAL },
-	{ POWER_SUPPLY_TYPE_USB_FLOAT,  QUICK_CHARGE_NORMAL },
-	{ POWER_SUPPLY_TYPE_USB_PD,       QUICK_CHARGE_FAST },
-	{ POWER_SUPPLY_TYPE_USB_HVDCP,    QUICK_CHARGE_FAST },
-	{ POWER_SUPPLY_TYPE_USB_HVDCP_3,  QUICK_CHARGE_FAST },
-	{ POWER_SUPPLY_TYPE_WIRELESS,     QUICK_CHARGE_FAST },
-	{0, 0},
-};
-
-int smblib_get_quick_charge_type(struct smb_charger *chg)
-{
-	int i = 0, rc;
-	union power_supply_propval pval = {0, };
-
-	if (!chg) {
-		dev_err(chg->dev, "get quick charge type faied\n");
-		return -EINVAL;
-	}
-
-	rc = smblib_get_prop_batt_status(chg, &pval);
+	rc = smblib_get_prop_batt_health(chg, &pval);
 	if (rc < 0)
-		return -EINVAL;
+		smblib_err(chg, "Couldn't get batt health rc=%d\n", rc);
 
 	if (pval.intval == POWER_SUPPLY_STATUS_DISCHARGING)
 		return 0;
 
-	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_PD) && chg->pd_verifed) {
-		return QUICK_CHARGE_FLASH;
+	if ((pval.intval == POWER_SUPPLY_HEALTH_COLD)
+			|| (pval.intval == POWER_SUPPLY_HEALTH_HOT))
+		return 0;
+
+	/* davinic do not need to report this type */
+	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_PD)
+				&& chg->pd_verifed && chg->qc_class_ab) {
+		return QUICK_CHARGE_TURBE;
 	}
 
 	if (chg->is_qc_class_b)
 		return QUICK_CHARGE_FLASH;
+
+	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_DCP) && chg->hvdcp_recheck_status)
+		return QUICK_CHARGE_FAST;
 
 	while (adapter_cap[i].adap_type != 0) {
 		if (chg->real_charger_type == adapter_cap[i].adap_type) {
@@ -6719,6 +6605,8 @@ int smblib_get_quick_charge_type(struct smb_charger *chg)
 
 	return 0;
 }
+
+#define APSD_EXTENDED_TIMEOUT_MS	400
 
 /* triggers when HVDCP 3.0 authentication has finished */
 static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
@@ -8867,6 +8755,7 @@ static void smblib_charger_type_recheck(struct work_struct *work)
 	int recheck_time = TYPE_RECHECK_TIME_5S;
 	static int last_charger_type, check_count;
 	int rc;
+
 	smblib_update_usb_type(chg);
 	smblib_dbg(chg, PR_OEM, "typec_mode:%d,last:%d: real charger type:%d\n",
 			chg->typec_mode, last_charger_type, chg->real_charger_type);
@@ -8875,8 +8764,11 @@ static void smblib_charger_type_recheck(struct work_struct *work)
 		check_count--;
 	last_charger_type = chg->real_charger_type;
 
+	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) ||
+			(chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+		power_supply_changed(chg->usb_psy);
+
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3 ||
-			chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP ||
 			chg->pd_active || (check_count >= TYPE_RECHECK_COUNT) ||
 			((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) &&
 				(chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER))) {
@@ -8893,6 +8785,7 @@ static void smblib_charger_type_recheck(struct work_struct *work)
 		chg->precheck_charger_type = chg->real_charger_type;
 	chg->recheck_charger = true;
 
+	/* need request hsusb phy dpdm to false then true for float charger */
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
@@ -8900,6 +8793,10 @@ static void smblib_charger_type_recheck(struct work_struct *work)
 
 		msleep(500);
 	}
+
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+		chg->hvdcp_recheck_status = true;
+
 	smblib_rerun_apsd_if_required(chg);
 
 check_next:
