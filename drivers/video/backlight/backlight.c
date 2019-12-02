@@ -188,7 +188,6 @@ int backlight_device_set_brightness(struct backlight_device *bd,
 				else
 					bd->use_count--;
 			}
-
 			pr_debug("set brightness to %lu\n", brightness);
 			if (!brightness) {
 				bl_event = BACKLIGHT_OFF;
