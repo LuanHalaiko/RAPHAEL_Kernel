@@ -1754,7 +1754,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 						strlen("led:torch"))) {
 		fnode = container_of(led_cdev, struct flash_node_data, cdev);
 		led = dev_get_drvdata(&fnode->pdev->dev);
-	}else if(!strncmp(led_cdev->name, "flashlight", strlen("flashlight"))){
+	} else if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight"))) {
 		fnode = container_of(led_cdev, struct flash_node_data, cdev);
 		led = dev_get_drvdata(&fnode->pdev->dev);
 	}
@@ -1772,7 +1772,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	} else if (fnode) {
 		if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight")))
 		{
-			if(g_torch_0 && g_torch_1 && g_switch_0 && g_switch_1){
+			if (g_torch_0 && g_torch_1 && g_switch_0 && g_switch_1){
 				pr_err("flash light fnode %d value %d", __LINE__, value);
 				qpnp_flash_led_node_set(g_torch_0, value);
 				qpnp_flash_led_node_set(g_torch_1, value);
@@ -1780,9 +1780,8 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 				qpnp_flash_led_switch_set(g_switch_1, value > 0);
 			}
 		}
-		else{
+		else
 			qpnp_flash_led_node_set(fnode, value);
-		}
 	}
 
 	spin_unlock(&led->lock);
@@ -2813,28 +2812,24 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 					i, rc);
 				goto error_led_register;
 			}
-			#if 1
+
 			fnode = &led->fnode[i];
-			if (!strcmp("led:torch_0", fnode->cdev.name)){
-				g_torch_0 =fnode;
-			}else if (!strcmp("led:torch_1",  fnode->cdev.name)){
-				g_torch_1 =fnode;
-			}
-			#endif
+			if (!strcmp("led:torch_0", fnode->cdev.name))
+				g_torch_0 = fnode;
+			else if (!strcmp("led:torch_1", fnode->cdev.name))
+				g_torch_1 = fnode;
 			i++;
 		}
 
 		if (!strcmp("switch", temp_string)) {
 			rc = qpnp_flash_led_parse_and_register_switch(led,
 					&led->snode[j], temp);
-			#if 1
+
 			snode = &led->snode[j];
-			if (!strcmp("led:switch_0", snode->cdev.name)){
+			if (!strcmp("led:switch_0", snode->cdev.name))
 				g_switch_0 = snode;
-			} else if (!strcmp("led:switch_1", snode->cdev.name)){
+			else if (!strcmp("led:switch_1", snode->cdev.name))
 				g_switch_1 = snode;
-			}
-			#endif
 			if (rc < 0) {
 				pr_err("Unable to parse and register switch node, rc=%d\n",
 					rc);
