@@ -195,9 +195,8 @@ struct drm_device {
 	struct drm_vma_offset_manager *vma_offset_manager;
 	/*@} */
 	int switch_power_state;
-	int state;
-	int doze_brightness;
-	bool fp_quickon;
+	int doze_state;
+	int pre_state;
 };
 
 #endif
