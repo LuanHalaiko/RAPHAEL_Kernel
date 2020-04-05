@@ -4308,7 +4308,7 @@ static void _sde_plane_atomic_disable(struct drm_plane *plane,
 				SDE_SSPP_RECT_SOLO, SDE_SSPP_MULTIRECT_NONE);
 }
 
-int sde_plane_check_fod_layer(const struct drm_plane_state *drm_state)
+int sde_plane_is_fod_layer(const struct drm_plane_state *drm_state)
 {
 	struct sde_plane_state *pstate;
 
