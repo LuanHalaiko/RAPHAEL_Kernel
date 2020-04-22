@@ -478,7 +478,6 @@ struct usbpd {
 
 	bool		has_dp;
 	u16			ss_lane_svid;
-
 	/*for xiaomi verifed pd adapter*/
 	u32			adapter_id;
 	u32			adapter_svid;
@@ -486,7 +485,6 @@ struct usbpd {
 	struct usbpd_svid_handler svid_handler;
 	bool			verifed;
 	int			uvdm_state;
-
 	/* ext msg support */
 	bool			send_get_src_cap_ext;
 	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
@@ -2028,14 +2026,12 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 						SVDM_HDR_OBJ_POS(vdm_hdr));
 				break;
 			}
-
 			if (num_vdos != 0) {
 				for (i = 0; i < num_vdos; i++) {
 					pd->adapter_id = vdos[i] & 0xFFFF;
 					usbpd_info(&pd->dev, "pd->adapter_id:0x%x\n", pd->adapter_id);
 				}
 			}
-
 			pd->vdm_state = DISCOVERED_ID;
 			usbpd_send_svdm(pd, USBPD_SID,
 					USBPD_SVDM_DISCOVER_SVIDS,
@@ -2567,7 +2563,6 @@ static void usbpd_sm(struct work_struct *w)
 		rx_msg_cleanup(pd);
 		pd->verifed = false;
 		pd->uvdm_state = USBPD_UVDM_DISCONNECT;
-
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
@@ -4819,15 +4814,19 @@ static void usbpd_mi_vdm_received_cb(struct usbpd_svid_handler *hdlr, u32 vdm_hd
 		usbpd_dbg(&pd->dev, "usb r_cable now:%dmohm\n", r_cable);
 		break;
 	case USBPD_UVDM_SESSION_SEED:
-		for (i = 0; i < USBPD_UVDM_SS_LEN; i++) {
-			pd->vdm_data.s_secert[i] = vdos[i];
-			usbpd_dbg(&pd->dev, "usbpd s_secert vdos[%d]=0x%x", i, vdos[i]);
+ 		 if (num_vdos != 0) {
+			 for (i = 0; i < num_vdos; i++) {
+				 pd->vdm_data.s_secert[i] = vdos[i];
+				 usbpd_dbg(&pd->dev, "usbpd s_secert vdos[%d]=0x%x", i, vdos[i]);
+			 }
 		}
 		break;
 	case USBPD_UVDM_AUTHENTICATION:
-		for (i = 0; i < USBPD_UVDM_SS_LEN; i++) {
-			pd->vdm_data.digest[i] = vdos[i];
-			usbpd_dbg(&pd->dev, "usbpd digest[%d]=0x%x", i, vdos[i]);
+		if (num_vdos != 0) {
+			for (i = 0; i < num_vdos; i++) {
+				pd->vdm_data.digest[i] = vdos[i];
+				usbpd_dbg(&pd->dev, "usbpd digest[%d]=0x%x", i, vdos[i]);
+			}
 		}
 		break;
 	default:
@@ -4867,7 +4866,6 @@ struct usbpd *usbpd_create(struct device *parent)
 		.svdm_received  = NULL,
 		.disconnect     = &usbpd_mi_disconnect_cb,
 	};
-
 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 	if (!pd)
 		return ERR_PTR(-ENOMEM);
@@ -5035,13 +5033,11 @@ struct usbpd *usbpd_create(struct device *parent)
 	ret = power_supply_reg_notifier(&pd->psy_nb);
 	if (ret)
 		goto del_inst;
-
 	pd->svid_handler = svid_handler;
 	ret = usbpd_register_svid(pd, &pd->svid_handler);
 	if (ret) {
 		usbpd_err(&pd->dev, "usbpd registration failed\n");
 	}
-
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
 

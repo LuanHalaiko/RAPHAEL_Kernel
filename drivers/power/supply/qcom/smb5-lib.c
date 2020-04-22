@@ -4990,6 +4990,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_100MA);
 		vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
+		/*set the icl to PD_UNVERIFED_CURRENT when pd is not verifed*/
+		rc = vote(chg->usb_icl_votable, PD_VERIFED_VOTER, true, PD_UNVERIFED_CURRENT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't unvote PD_VERIFED_VOTER, rc=%d\n", rc);
 
 		/*set the icl to PD_UNVERIFED_CURRENT when pd is not verifed*/
 		rc = vote(chg->usb_icl_votable, PD_VERIFED_VOTER, true, PD_UNVERIFED_CURRENT);
@@ -6699,10 +6703,6 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
-	vote(chg->awake_votable, CHG_AWAKE_VOTER, false, 0);
-	vote(chg->fcc_votable, CLASSA_QC_FCC_VOTER, false, 0);
-	vote(chg->usb_icl_votable, QC_A_CP_ICL_MAX_VOTER, false, 0);
-	vote(chg->usb_icl_votable, QC2_UNSUPPORTED_VOTER, false, 0);
 	vote(chg->usb_icl_votable, PD_VERIFED_VOTER, false, 0);
 
 	/* Remove SW thermal regulation WA votes */
@@ -6775,15 +6775,6 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_notify_device_mode(chg, false);
 
 	chg->typec_legacy = false;
-	chg->detect_low_power_qc3_charger = false;
-	chg->raise_vbus_to_detect = false;
-	chg->is_qc_class_a = false;
-	chg->is_qc_class_b = false;
-	chg->high_vbus_detected = false;
-	chg->qc2_unsupported = false;
-	chg->cc_un_compliant_detected = false;
-	chg->recheck_charger = false;
-
 	pr_err("%s:", __func__);
 	if (chg->pd_verifed)
 		chg->pd_verifed = false;
