@@ -121,7 +121,7 @@ static struct xiaomi_touch xiaomi_touch_dev = {
 	},
 	.mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.mutex),
 	.palm_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.palm_mutex),
-	.psensor_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.psensor_mutex),
+	.pocket_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.pocket_mutex),
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER(xiaomi_touch_dev.wait_queue),
 };
 
@@ -158,13 +158,13 @@ int xiaomitouch_register_modedata(struct xiaomi_touch_interface *data)
 
 	touch_data->setModeValue = data->setModeValue;
 	touch_data->getModeValue = data->getModeValue;
-	touch_data->resetMode = data->resetMode;
+	touch_data->resetMode= data->resetMode;
 	touch_data->getModeAll = data->getModeAll;
 	touch_data->palm_sensor_read = data->palm_sensor_read;
 	touch_data->palm_sensor_write = data->palm_sensor_write;
 	touch_data->p_sensor_read = data->p_sensor_read;
 	touch_data->p_sensor_write = data->p_sensor_write;
-
+	touch_data->touch_vendor_read = data->touch_vendor_read;
 	mutex_unlock(&xiaomi_touch_dev.mutex);
 
 	return ret;
@@ -280,15 +280,30 @@ struct device_attribute *attr, const char *buf, size_t count)
 	return count;
 }
 
+static ssize_t xiaomi_touch_vendor_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	char value = '0';
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+	if (pdata->touch_data->touch_vendor_read)
+		value = pdata->touch_data->touch_vendor_read();
+	else
+		pr_err("Touch vendor not define,return default value\n");
+	return snprintf(buf, PAGE_SIZE, "%c\n", value);
+}
+
 static DEVICE_ATTR(palm_sensor, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   palm_sensor_show, palm_sensor_store);
 
 static DEVICE_ATTR(p_sensor, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   p_sensor_show, p_sensor_store);
 
+static DEVICE_ATTR(touch_vendor, 0644, xiaomi_touch_vendor_show, NULL);
+
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_palm_sensor.attr,
 	&dev_attr_p_sensor.attr,
+	&dev_attr_touch_vendor.attr,
 	NULL,
 };
 

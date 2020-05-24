@@ -61,6 +61,7 @@ struct xiaomi_touch_interface {
 	int (*p_sensor_write)(int on);
 	int (*palm_sensor_read)(void);
 	int (*palm_sensor_write)(int on);
+	char (*touch_vendor_read)(void);
 };
 
 struct xiaomi_touch {
@@ -71,6 +72,7 @@ struct xiaomi_touch {
 	struct mutex  mutex;
 	struct mutex  palm_mutex;
 	struct mutex  psensor_mutex;
+	struct mutex  pocket_mutex;
 	wait_queue_head_t 	wait_queue;
 };
 
@@ -81,6 +83,8 @@ struct xiaomi_touch_pdata{
 	bool palm_changed;
 	int psensor_value;
 	bool psensor_changed;
+	int pocket_value;
+	bool pocket_changed;
 	const char *name;
 };
 
@@ -93,6 +97,8 @@ extern struct device *get_xiaomi_touch_dev(void);
 extern int update_palm_sensor_value(int value);
 
 extern int update_p_sensor_value(int value);
+
+extern int update_pocket_value(int value);
 
 int xiaomitouch_register_modedata(struct xiaomi_touch_interface *data);
 
