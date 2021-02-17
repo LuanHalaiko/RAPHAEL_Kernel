@@ -1,6 +1,7 @@
-/*
+ /*
  * Copyright (c) 2016 Samsung Electronics Co., Ltd.
- * Author: Andi Shyti <andi.shyti@samsung.com>
+ * Copyright (C) 2019 XiaoMi, Inc.
+ * Author: Andi Shyti <andi.shyti@samsung.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
