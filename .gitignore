@@ -128,5 +128,7 @@ kernel/configs/android-*.cfg
 
 # stand-alone
 build.sh
-build/
+Zip-out/
+Buildlog-CLANG.txt
+builder.sh
 out/
